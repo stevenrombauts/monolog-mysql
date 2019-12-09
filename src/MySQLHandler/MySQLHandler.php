@@ -40,7 +40,7 @@ class MySQLHandler extends AbstractProcessingHandler
     /**
      * @var array default fields that are stored in db
      */
-    private $defaultfields = array('id', 'channel', 'level', 'message', 'time');
+    private $defaultfields = array('id', 'channel', 'level', 'message', 'time', 'context');
 
     /**
      * @var string[] additional fields to be stored in the database
@@ -88,7 +88,7 @@ class MySQLHandler extends AbstractProcessingHandler
     {
         $this->pdo->exec(
             'CREATE TABLE IF NOT EXISTS `'.$this->table.'` '
-            .'(id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, channel VARCHAR(255), level INTEGER, message LONGTEXT, time INTEGER UNSIGNED, INDEX(channel) USING HASH, INDEX(level) USING HASH, INDEX(time) USING BTREE)'
+            .'(id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, channel VARCHAR(255), level INTEGER, message LONGTEXT, time INTEGER UNSIGNED, `context` JSON DEFAULT NULL, INDEX(channel) USING HASH, INDEX(level) USING HASH, INDEX(time) USING BTREE)'
         );
 
         //Read out actual columns
@@ -189,9 +189,16 @@ class MySQLHandler extends AbstractProcessingHandler
                                         'time' => $record['datetime']->format('U')
                                     ), $record['context']);
 
-        // unset array keys that are passed put not defined to be stored, to prevent sql errors
+	// Create an empty context array if not yet present
+	if (!array_key_exists('context', $contentArray)) {
+            $contentArray['context'] = [];
+        }
+	    
+        // store array keys that are passed but not defined as a field in the context column
         foreach($contentArray as $key => $context) {
             if (! in_array($key, $this->fields)) {
+		$contentArray['context'][$key] = $context;
+		    
                 unset($contentArray[$key]);
                 unset($this->fields[array_search($key, $this->fields)]);
                 continue;
@@ -212,6 +219,9 @@ class MySQLHandler extends AbstractProcessingHandler
 		    }
 	    }
 
+	// Encode the context data as a JSON object
+        $contentArray['context'] = json_encode($contentArray['context']);
+	    
         //Fill content array with "null" values if not provided
         $contentArray = $contentArray + array_combine(
             $this->additionalFields,
