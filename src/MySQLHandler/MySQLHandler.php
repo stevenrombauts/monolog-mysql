@@ -130,15 +130,20 @@ class MySQLHandler extends AbstractProcessingHandler
     /**
      * Prepare the sql statment depending on the fields that should be written to the database
      */
-    private function prepareStatement()
+    private function prepareStatement(array $contentArray)
     {
-        //Prepare statement
+        // Prepare statement
         $columns = "";
         $fields  = "";
         foreach ($this->fields as $key => $f) {
             if ($f == 'id') {
                 continue;
             }
+
+            if (!array_key_exists($f, $contentArray)) {
+                continue;
+            }
+
             if ($key == 1) {
                 $columns .= "$f";
                 $fields .= ":$f";
@@ -194,7 +199,7 @@ class MySQLHandler extends AbstractProcessingHandler
             $contentArray['context'] = [];
         }
 	    
-        // store array keys that are passed but not defined as a field in the context column
+        // Store array keys that are passed but not defined as a field in the context column
         foreach($contentArray as $key => $context) {
             if (! in_array($key, $this->fields)) {
 		$contentArray['context'][$key] = $context;
@@ -210,19 +215,19 @@ class MySQLHandler extends AbstractProcessingHandler
             }
         }
 
-        $this->prepareStatement();
+        $this->prepareStatement($contentArray);
 
-	    //Remove unused keys
-	    foreach($this->additionalFields as $key => $context) {
-		    if(! isset($contentArray[$key])) {
-			    unset($this->additionalFields[$key]);
-		    }
-	    }
+        // Remove unused keys
+        foreach($this->additionalFields as $key => $context) {
+            if(! isset($contentArray[$key])) {
+                unset($this->additionalFields[$key]);
+            }
+        }
 
 	// Encode the context data as a JSON object
         $contentArray['context'] = json_encode($contentArray['context']);
 	    
-        //Fill content array with "null" values if not provided
+        // Fill content array with "null" values if not provided
         $contentArray = $contentArray + array_combine(
             $this->additionalFields,
             array_fill(0, count($this->additionalFields), null)
